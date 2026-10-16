@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { GetPendidikan, AddPendidikan, UpdatePendidikan, DeletePendidikan, BASE_URL, delay } from '../api/backendApi';
 import Modal from './Modal';
 import Button from './Button';
@@ -11,14 +11,14 @@ const Pendidikan = ({ token }) => {
   const [isEdit, setIsEdit] = useState(false);
   const [currentId, setCurrentId] = useState(null);
   const [form, setForm] = useState({ nama_institusi: '', tingkat: '', jurusan: '', tahun_mulai: '', tahun_selesai: '', gambar: null });
+  const [gambarPreview, setGambarPreview] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [alert, setAlert] = useState({ show: false, message: '', type: '' });
 
   // 1. Ambil data dari server
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!token) return;
-    setIsLoadingData(true);
     try {
       const [res] = await Promise.all([GetPendidikan(token), delay(200)]);
       if (res.data.status === 'success') {
@@ -29,17 +29,28 @@ const Pendidikan = ({ token }) => {
     } finally {
       setIsLoadingData(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
-    fetchData();
-  }, [token]);
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) fetchData();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchData]);
+
+  useEffect(() => () => {
+    if (gambarPreview) URL.revokeObjectURL(gambarPreview);
+  }, [gambarPreview]);
 
   // 2. Tombol Tambah Baru
   const handleOpenAdd = () => {
     setIsEdit(false);
     setCurrentId(null);
     setForm({ nama_institusi: '', tingkat: '', jurusan: '', tahun_mulai: '', tahun_selesai: '', gambar: null });
+    setGambarPreview('');
     setIsOpen(true);
   };
 
@@ -55,6 +66,7 @@ const Pendidikan = ({ token }) => {
       tahun_selesai: item.tahun_selesai,
       gambar: null
     });
+    setGambarPreview('');
     setIsOpen(true);
   };
 
@@ -135,7 +147,7 @@ const Pendidikan = ({ token }) => {
                     <img
                       src={`${BASE_URL}/uploads/${item.gambar}`}
                       alt={`Dokumentasi ${item.nama_institusi}`}
-                      style={{ width: '64px', height: '48px', objectFit: 'cover', borderRadius: '4px' }}
+                      className="education-admin-thumbnail"
                     />
                   )}
                 </td>
@@ -209,13 +221,17 @@ const Pendidikan = ({ token }) => {
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => setForm({ ...form, gambar: e.target.files[0] || null })}
+            onChange={(e) => {
+              const gambar = e.target.files[0] || null;
+              setForm({ ...form, gambar });
+              setGambarPreview(gambar ? URL.createObjectURL(gambar) : '');
+            }}
           />
-          {isEdit && list.find((item) => item.id === currentId)?.gambar && (
+          {(gambarPreview || (isEdit && list.find((item) => item.id === currentId)?.gambar)) && (
             <img
-              src={`${BASE_URL}/uploads/${list.find((item) => item.id === currentId).gambar}`}
-              alt="Gambar pendidikan saat ini"
-              style={{ width: '100px', height: '75px', objectFit: 'cover', marginBottom: '12px' }}
+              className="education-admin-preview"
+              src={gambarPreview || `${BASE_URL}/uploads/${list.find((item) => item.id === currentId).gambar}`}
+              alt={gambarPreview ? 'Pratinjau gambar pendidikan' : 'Gambar pendidikan saat ini'}
             />
           )}
 

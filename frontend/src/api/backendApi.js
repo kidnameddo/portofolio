@@ -1,7 +1,7 @@
 // frontend/src/api/backendApi.js
 import axios from "axios";
 // Alamat dasar server PHP backend
-export const BASE_URL = 'http://localhost:8000';
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 // Fungsi helper delay untuk memberi waktu animasi loading yang nyaman bagi mata
 export const delay = (ms = 200) => new Promise((resolve) => setTimeout(resolve, ms));
 // Membuat instance axios dengan konfigurasi dasar
@@ -18,6 +18,9 @@ export const LogoutApi = async (token) => {
 // ==================== ENDPOINT PUBLIK ====================
 export const GetPublic = async () => {
  return await backendApi.get('/public');
+};
+export const AskChatbot = async (messages) => {
+ return await backendApi.post('/chat', { messages });
 };
 // ==================== BIODATA & PROFIL ====================
 export const GetUser = async (token) => {

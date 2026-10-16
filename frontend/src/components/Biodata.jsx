@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { GetUser, UpdateUser, BASE_URL } from '../api/backendApi';
 import nofoto from '../assets/nofoto.jpg';
 import Modal from './Modal';
@@ -19,11 +19,11 @@ const Biodata = ({ token }) => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [photoPreview, setPhotoPreview] = useState("");
   const [alert, setAlert] = useState({ show: false, message: '', type: '' });
 
-  const fetchGetUser = async () => {
+  const fetchGetUser = useCallback(async () => {
     if (!token) return;
-    setIsLoadingData(true);
     try {
       const response = await GetUser(token);
       if (response.data.status === 'success') {
@@ -38,16 +38,26 @@ const Biodata = ({ token }) => {
           foto: null
         });
       }
-    } catch (err) {
+    } catch {
       setAlert({ show: true, message: 'Gagal mengambil data biodata', type: 'error' });
     } finally {
       setIsLoadingData(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
-    fetchGetUser();
-  }, [token]);
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) fetchGetUser();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchGetUser]);
+
+  useEffect(() => () => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+  }, [photoPreview]);
 
   const getFotoUrl = () => {
     if (!userData?.foto) return nofoto;
@@ -64,6 +74,7 @@ const Biodata = ({ token }) => {
       password: '',
       foto: null
     });
+    setPhotoPreview("");
     setIsOpen(true);
   };
 
@@ -83,9 +94,15 @@ const Biodata = ({ token }) => {
       if (response.data.status === 'success') {
         setAlert({ show: true, message: 'Biodata berhasil diperbarui!', type: 'success' });
         setIsOpen(false);
-        fetchGetUser();
+        await fetchGetUser();
+      } else {
+        setAlert({
+          show: true,
+          message: response.data.message || response.data.pesan || 'Gagal memperbarui profil',
+          type: 'error'
+        });
       }
-    } catch (err) {
+    } catch {
       setAlert({ show: true, message: 'Gagal memperbarui profil', type: 'error' });
     } finally {
       setIsSubmitting(false);
@@ -97,7 +114,7 @@ const Biodata = ({ token }) => {
   }
 
   return (
-    <div>
+    <div className="admin-biodata">
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
         <h3>Biodata</h3>
         <Button primary={true} text="Edit Biodata" onClick={handleOpenEdit} type="button" />
@@ -168,10 +185,19 @@ const Biodata = ({ token }) => {
 
           <label>Foto Profil (opsional)</label>
           <input
+            id="profile-photo"
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => setFormDataState({ ...formDataState, foto: e.target.files[0] || null })}
+            onChange={(e) => {
+              const foto = e.target.files[0] || null;
+              setFormDataState({ ...formDataState, foto });
+              setPhotoPreview(foto ? URL.createObjectURL(foto) : "");
+            }}
           />
+          <div className="profile-photo-preview">
+            <img src={photoPreview || getFotoUrl()} alt="Pratinjau foto profil" />
+            <span>{formDataState.foto?.name || "Foto profil saat ini"}</span>
+          </div>
 
           <div style={{ textAlign: 'right', marginTop: '10px' }}>
             <Button

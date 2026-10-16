@@ -7,7 +7,9 @@ $path = trim($requestUri, '/');
 
 // 2. PENANGANAN BERKAS STATIS (Contoh: Gambar di folder uploads/)
 $staticFile = __DIR__ . '/' . $path;
-if ($path !== '' && file_exists($staticFile) && !is_dir($staticFile)) {
+$requestedFile = strtolower(basename(str_replace('\\', '/', $path)));
+$isEnvironmentFile = $requestedFile === '.env' || strpos($requestedFile, '.env.') === 0;
+if ($path !== '' && !$isEnvironmentFile && file_exists($staticFile) && !is_dir($staticFile)) {
     // Deteksi tipe konten (image/png, image/jpeg, dll)
     $mime = mime_content_type($staticFile);
     header('Content-Type: ' . ($mime ?: 'application/octet-stream'));
